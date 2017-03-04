@@ -25,7 +25,7 @@ public class NellaClient {
     
     private Session session;
 
-    public NellaClient(Boolean debug) {
+    public NellaClient() {
         try {
             baseUrl = new URL("https://nella.tampere.fi/mobiili/");
             authUrl = new URL(baseUrl, "oauth/token");
@@ -34,15 +34,9 @@ public class NellaClient {
         } catch (MalformedURLException ex) {
             Logger.getLogger(NellaClient.class.getName()).log(Level.SEVERE, null, ex);
         }
-        if (debug) {
-            System.out.println(String.format(" BaseUrl: %s", baseUrl));
-            System.out.println(String.format(" AuthUrl: %s", authUrl));
-            System.out.println(String.format(" BackendUrl: %s", backendURL));
-            System.out.println(String.format(" Lang code: %s", lang));
-        }
     }
 
-    public Boolean auth(String username, String password) throws NellaAuthFailedError{
+    public Boolean auth(String username, String password) throws NellaAuthFailedException{
         String payload = String.format("grant_type=password&username=%s&password=%s", username, password);
         HttpsURLConnection con = sendPost(authUrl, payload.getBytes(StandardCharsets.UTF_8));
         JsonObject json = new Gson().fromJson(readInput(con), JsonObject.class);
@@ -52,7 +46,7 @@ public class NellaClient {
                 return true;
             }
             else{
-                throw new NellaAuthFailedError(String.format("Authentication failed: %s",json.get("error_description").getAsString()));
+                throw new NellaAuthFailedException(String.format("Authentication failed: %s",json.get("error_description").getAsString()));
             }
         } catch (IOException ex) {
             Logger.getLogger(NellaClient.class.getName()).log(Level.SEVERE, null, ex);
@@ -96,9 +90,9 @@ public class NellaClient {
         }
     }
     
-    public String doRequest(String url) throws NellaNotAuthenticatedError, NellaRequestFailedError{
+    public String sendGet(String url) throws NellaNotAuthenticatedException, NellaRequestFailedException{
         if(session == null || session.isExpired()){
-            throw new NellaNotAuthenticatedError("Not authenticated");
+            throw new NellaNotAuthenticatedException("Not authenticated");
         }
         try {
             URL target = new URL(backendURL,String.format("%s?lang=%s", url,lang));
@@ -108,7 +102,7 @@ public class NellaClient {
             con.setRequestProperty("Cache-Control", "no-cache");
             con.setRequestProperty("Pragma", "no-cache");
             if(con.getResponseCode() != HttpsURLConnection.HTTP_OK){
-                throw new NellaRequestFailedError("Request failed");
+                throw new NellaRequestFailedException("Request failed");
             }
             session.updateExpiryDate();
             return readInput(con);
